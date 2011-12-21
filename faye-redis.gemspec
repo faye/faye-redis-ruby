@@ -4,7 +4,7 @@ Gem::Specification.new do |s|
   s.summary           = "Redis backend engine for Faye"
   s.author            = "James Coglan"
   s.email             = "jcoglan@gmail.com"
-  s.homepage          = "http://github.com/jcoglan/faye-redis-ruby"
+  s.homepage          = "http://github.com/faye/faye-redis-ruby"
 
   s.extra_rdoc_files  = %w[README.rdoc]
   s.rdoc_options      = %w[--main README.rdoc]

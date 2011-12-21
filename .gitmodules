@@ -1,3 +1,3 @@
 [submodule "vendor/faye"]
 	path = vendor/faye
-	url = git://github.com/jcoglan/faye.git
+	url = git://github.com/faye/faye.git
