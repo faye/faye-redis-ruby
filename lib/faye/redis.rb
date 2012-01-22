@@ -60,14 +60,11 @@ module Faye
       init
       client_id = @server.generate_id
       @redis.zadd(@ns + '/clients', 0, client_id) do |added|
-        if added == 0
-          create_client(&callback)
-        else
-          @server.debug 'Created new client ?', client_id
-          ping(client_id)
-          @server.trigger(:handshake, client_id)
-          callback.call(client_id)
-        end
+        next create_client(&callback) if added == 0
+        @server.debug 'Created new client ?', client_id
+        ping(client_id)
+        @server.trigger(:handshake, client_id)
+        callback.call(client_id)
       end
     end
     
@@ -77,24 +74,22 @@ module Faye
       @redis.del(@ns + "/clients/#{client_id}/messages")
       
       @redis.smembers(@ns + "/clients/#{client_id}/channels") do |channels|
-        n, i = channels.size, 0
-        if n == 0
-          @server.debug 'Destroyed client ?', client_id
-          @server.trigger(:disconnect, client_id)
-          callback.call if callback
-        else
-          channels.each do |channel|
-            unsubscribe(client_id, channel) do
-              i += 1
-              if i == n
-                @server.debug 'Destroyed client ?', client_id
-                @server.trigger(:disconnect, client_id)
-                callback.call if callback
-              end
-            end
+        i, n = 0, channels.size
+        next after_destroy(client_id, &callback) if i == n
+        
+        channels.each do |channel|
+          unsubscribe(client_id, channel) do
+            i += 1
+            after_destroy(client_id, &callback) if i == n
           end
         end
       end
+    end
+    
+    def after_destroy(client_id, &callback)
+      @server.debug 'Destroyed client ?', client_id
+      @server.trigger(:disconnect, client_id)
+      callback.call if callback
     end
     
     def client_exists(client_id, &callback)
@@ -184,14 +179,12 @@ module Faye
         cutoff = get_current_time - 1000 * 2 * timeout
         @redis.zrangebyscore(@ns + '/clients', 0, cutoff) do |clients|
           i, n = 0, clients.size
-          if i == n
-            release_lock.call
-          else
-            clients.each do |client_id|
-              destroy_client(client_id) do
-                i += 1
-                release_lock.call if i == n
-              end
+          next release_lock.call if i == n
+          
+          clients.each do |client_id|
+            destroy_client(client_id) do
+              i += 1
+              release_lock.call if i == n
             end
           end
         end
@@ -208,21 +201,17 @@ module Faye
       end
       
       @redis.setnx(lock_key, expiry) do |set|
-        if set == 1
-          block.call(release_lock)
-        else
+        next block.call(release_lock) if set == 1
+        
+        @redis.get(lock_key) do |timeout|
+          next unless timeout
           
-          @redis.get(lock_key) do |timeout|
-            if timeout
-              lock_timeout = timeout.to_i(10)
-              if lock_timeout < current_time
-                @redis.getset(lock_key, expiry) do |old_value|
-                  block.call(release_lock) if old_value == timeout
-                end
-              end
-            end
+          lock_timeout = timeout.to_i(10)
+          next if current_time < lock_timeout
+          
+          @redis.getset(lock_key, expiry) do |old_value|
+            block.call(release_lock) if old_value == timeout
           end
-          
         end
       end
     end
