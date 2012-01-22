@@ -12,7 +12,7 @@ Gem::Specification.new do |s|
 
   s.files = %w[README.rdoc] + Dir.glob("{spec,lib}/**/*")
 
-  s.add_dependency "eventmachine", "~> 0.12.0"
+  s.add_dependency "eventmachine", ">= 0.12.0"
   s.add_dependency "em-hiredis", ">= 0.0.1"
 
   s.add_development_dependency "rspec", "~> 2.8.0"
