@@ -8,10 +8,9 @@ Gem::Specification.new do |s|
 
   s.extra_rdoc_files  = %w[README.rdoc]
   s.rdoc_options      = %w[--main README.rdoc]
+  s.require_paths     = %w[lib]
 
   s.files = %w[README.rdoc] + Dir.glob("{spec,lib}/**/*")
-  
-  s.require_paths     = %w[lib]
 
   s.add_dependency "eventmachine", "~> 0.12.0"
   s.add_dependency "em-hiredis", ">= 0.0.1"
