@@ -14,14 +14,7 @@ Gem::Specification.new do |s|
 
   s.add_dependency "eventmachine", ">= 0.12.0"
   s.add_dependency "em-hiredis", ">= 0.0.1"
+  s.add_dependency "yajl-ruby", ">= 1.0.0"
 
   s.add_development_dependency "rspec", "~> 2.8.0"
-  
-  # TODO remove all these by making it easier to load Faye specs
-  s.add_development_dependency "cookiejar"
-  s.add_development_dependency "em-http-request"
-  s.add_development_dependency "faye-websocket"
-  s.add_development_dependency "rack"
-  s.add_development_dependency "rack-test"
-  s.add_development_dependency "thin"
 end
