@@ -1,7 +1,10 @@
 require "spec_helper"
 
 describe Faye::Redis do
-  let(:engine_opts)  { {:type => Faye::Redis, :password => "foobared", :namespace => Time.now.to_i.to_s} }
+  let(:engine_opts)  do
+    pw = ENV["TRAVIS"] ? nil : "foobared"
+    {:type => Faye::Redis, :password => pw, :namespace => Time.now.to_i.to_s}
+  end
   
   after do
     engine.disconnect
