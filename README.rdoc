@@ -1,4 +1,4 @@
-= Faye::Redis
+= Faye::Redis {<img src="https://secure.travis-ci.org/faye/faye-redis-ruby.png?branch=master" alt="Build Status" />}[http://travis-ci.org/faye/faye-redis-ruby]
 
 This plugin provides a Redis-based backend for the {Faye}[http://faye.jcoglan.com]
 messaging server. It allows a single Faye service to be distributed across many
