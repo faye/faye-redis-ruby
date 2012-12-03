@@ -53,6 +53,7 @@ module Faye
     end
     
     def disconnect
+      return unless @redis
       @subscriber.unsubscribe(@ns + '/notifications')
       EventMachine.cancel_timer(@gc)
     end
