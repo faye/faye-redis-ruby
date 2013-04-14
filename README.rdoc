@@ -12,7 +12,7 @@ Pass in the engine and any settings you need when setting up your Faye server.
 
     require 'faye'
     require 'faye/redis'
-    
+
     bayeux = Faye::RackAdapter.new(
       :mount   => '/',
       :timeout => 25,
