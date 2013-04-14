@@ -25,6 +25,7 @@ Pass in the engine and any settings you need when setting up your Faye server.
 
 The full list of settings is as follows.
 
+* <b><tt>:uri</tt></b> - redis URL (example: redis://:secretpassword@example.com:9000/4)
 * <b><tt>:host</tt></b> - hostname of your Redis instance
 * <b><tt>:port</tt></b> - port number, default is +6379+
 * <b><tt>:password</tt></b> - password, if +requirepass+ is set
