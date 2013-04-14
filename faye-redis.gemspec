@@ -13,7 +13,7 @@ Gem::Specification.new do |s|
   s.files = %w[README.rdoc] + Dir.glob("{spec,lib}/**/*")
 
   s.add_dependency "eventmachine", ">= 0.12.0"
-  s.add_dependency "em-hiredis", ">= 0.0.1"
+  s.add_dependency "em-hiredis", ">= 0.2.0"
   s.add_dependency "yajl-ruby", ">= 1.0.0"
 
   s.add_development_dependency "rspec"
