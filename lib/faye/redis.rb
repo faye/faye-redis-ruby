@@ -32,9 +32,11 @@ module Faye
       socket = @options[:socket]    || nil
 
       if uri
-        @redis      = EventMachine::Hiredis.connect(uri)
+        @redis = EventMachine::Hiredis.connect(uri)
+      elsif socket
+        @redis = EventMachine::Hiredis::Client.new(socket, nil, auth, db).connect
       else
-        @redis      = EventMachine::Hiredis::Client.new((socket ? socket : host), (socket ? nil : port), auth, db).connect
+        @redis = EventMachine::Hiredis::Client.new(host, port, auth, db).connect
       end
       @subscriber = @redis.pubsub
       
