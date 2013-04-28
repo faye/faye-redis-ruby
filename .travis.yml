@@ -9,7 +9,7 @@ rvm:
 before_script:
   - git submodule update --init --recursive
 
-script: bundle exec rspec spec/
+script: bundle exec rspec -c spec/
 
 env: TRAVIS=1
 
