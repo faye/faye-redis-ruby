@@ -68,21 +68,25 @@ module Faye
 
     def client_exists(client_id, &callback)
       init
+      cutoff = get_current_time - (1000 * 1.6 * @server.timeout)
+
       @redis.zscore(@ns + '/clients', client_id) do |score|
-        callback.call(score != nil)
+        callback.call(score.to_i > cutoff)
       end
     end
 
     def destroy_client(client_id, &callback)
       init
-      @redis.smembers(@ns + "/clients/#{client_id}/channels") do |channels|
-        i, n = 0, channels.size
-        next after_subscriptions_removed(client_id, &callback) if i == n
+      @redis.zadd(@ns + '/clients', 0, client_id) do
+        @redis.smembers(@ns + "/clients/#{client_id}/channels") do |channels|
+          i, n = 0, channels.size
+          next after_subscriptions_removed(client_id, &callback) if i == n
 
-        channels.each do |channel|
-          unsubscribe(client_id, channel) do
-            i += 1
-            after_subscriptions_removed(client_id, &callback) if i == n
+          channels.each do |channel|
+            unsubscribe(client_id, channel) do
+              i += 1
+              after_subscriptions_removed(client_id, &callback) if i == n
+            end
           end
         end
       end
@@ -140,9 +144,15 @@ module Faye
 
       @redis.sunion(*keys) do |clients|
         clients.each do |client_id|
+          queue = @ns + "/clients/#{client_id}/messages"
+
           @server.debug 'Queueing for client ?: ?', client_id, message
-          @redis.rpush(@ns + "/clients/#{client_id}/messages", json_message)
+          @redis.rpush(queue, json_message)
           @redis.publish(@ns + '/notifications', client_id)
+
+          client_exists(client_id) do |exists|
+            @redis.del(queue) unless exists
+          end
         end
       end
 
