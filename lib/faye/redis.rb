@@ -66,34 +66,35 @@ module Faye
       end
     end
 
+    def client_exists(client_id, &callback)
+      init
+      @redis.zscore(@ns + '/clients', client_id) do |score|
+        callback.call(score != nil)
+      end
+    end
+
     def destroy_client(client_id, &callback)
       init
-      @redis.zrem(@ns + '/clients', client_id)
-      @redis.del(@ns + "/clients/#{client_id}/messages")
-
       @redis.smembers(@ns + "/clients/#{client_id}/channels") do |channels|
         i, n = 0, channels.size
-        next after_destroy(client_id, &callback) if i == n
+        next after_subscriptions_removed(client_id, &callback) if i == n
 
         channels.each do |channel|
           unsubscribe(client_id, channel) do
             i += 1
-            after_destroy(client_id, &callback) if i == n
+            after_subscriptions_removed(client_id, &callback) if i == n
           end
         end
       end
     end
 
-    def after_destroy(client_id, &callback)
-      @server.debug 'Destroyed client ?', client_id
-      @server.trigger(:disconnect, client_id)
-      callback.call if callback
-    end
-
-    def client_exists(client_id, &callback)
-      init
-      @redis.zscore(@ns + '/clients', client_id) do |score|
-        callback.call(score != nil)
+    def after_subscriptions_removed(client_id, &callback)
+      @redis.del(@ns + "/clients/#{client_id}/messages") do
+        @redis.zrem(@ns + '/clients', client_id) do
+          @server.debug 'Destroyed client ?', client_id
+          @server.trigger(:disconnect, client_id)
+          callback.call if callback
+        end
       end
     end
 
@@ -158,6 +159,7 @@ module Faye
       @redis.lrange(key, 0, -1)
       @redis.del(key)
       @redis.exec.callback  do |json_messages, deleted|
+        next unless json_messages
         messages = json_messages.map { |json| Yajl::Parser.parse(json) }
         @server.deliver(client_id, messages)
       end
