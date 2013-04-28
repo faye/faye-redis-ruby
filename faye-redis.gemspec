@@ -10,7 +10,7 @@ Gem::Specification.new do |s|
   s.rdoc_options      = %w[--main README.rdoc]
   s.require_paths     = %w[lib]
 
-  s.files = %w[README.rdoc] + Dir.glob("lib/**/*.rb")
+  s.files = %w[README.rdoc CHANGELOG.txt] + Dir.glob("lib/**/*.rb")
 
   s.add_dependency "eventmachine", ">= 0.12.0"
   s.add_dependency "em-hiredis", ">= 0.2.0"
