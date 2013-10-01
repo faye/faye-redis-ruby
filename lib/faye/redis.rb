@@ -1,5 +1,5 @@
 require 'em-hiredis'
-require 'yajl'
+require 'multi_json'
 
 module Faye
   class Redis
@@ -138,7 +138,7 @@ module Faye
       init
       @server.debug 'Publishing message ?', message
 
-      json_message = Yajl::Encoder.encode(message)
+      json_message = MultiJson.dump(message)
       channels     = Channel.expand(message['channel'])
       keys         = channels.map { |c| @ns + "/channels#{c}" }
 
@@ -170,7 +170,7 @@ module Faye
       @redis.del(key)
       @redis.exec.callback  do |json_messages, deleted|
         next unless json_messages
-        messages = json_messages.map { |json| Yajl::Parser.parse(json) }
+        messages = json_messages.map { |json| MultiJson.load(json) }
         @server.deliver(client_id, messages)
       end
     end
