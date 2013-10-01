@@ -40,9 +40,14 @@ module Faye
       end
       @subscriber = @redis.pubsub
 
-      @subscriber.subscribe(@ns + '/notifications')
+      @message_channel = @ns + '/notifications/messages'
+      @close_channel   = @ns + '/notifications/close'
+
+      @subscriber.subscribe(@message_channel)
+      @subscriber.subscribe(@close_channel)
       @subscriber.on(:message) do |topic, message|
-        empty_queue(message) if topic == @ns + '/notifications'
+        empty_queue(message) if topic == @message_channel
+        @server.trigger(:close, message) if topic == @close_channel
       end
 
       @gc = EventMachine.add_periodic_timer(gc, &method(:gc))
@@ -50,7 +55,8 @@ module Faye
 
     def disconnect
       return unless @redis
-      @subscriber.unsubscribe(@ns + '/notifications')
+      @subscriber.unsubscribe(@message_channel)
+      @subscriber.unsubscribe(@close_channel)
       EventMachine.cancel_timer(@gc)
     end
 
@@ -97,6 +103,7 @@ module Faye
         @redis.zrem(@ns + '/clients', client_id) do
           @server.debug 'Destroyed client ?', client_id
           @server.trigger(:disconnect, client_id)
+          @redis.publish(@close_channel, client_id)
           callback.call if callback
         end
       end
@@ -148,7 +155,7 @@ module Faye
 
           @server.debug 'Queueing for client ?: ?', client_id, message
           @redis.rpush(queue, json_message)
-          @redis.publish(@ns + '/notifications', client_id)
+          @redis.publish(@message_channel, client_id)
 
           client_exists(client_id) do |exists|
             @redis.del(queue) unless exists
