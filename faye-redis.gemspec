@@ -6,11 +6,12 @@ Gem::Specification.new do |s|
   s.email             = 'jcoglan@gmail.com'
   s.homepage          = 'http://github.com/faye/faye-redis-ruby'
 
-  s.extra_rdoc_files  = %w[README.rdoc]
-  s.rdoc_options      = %w[--main README.rdoc]
+  s.extra_rdoc_files  = %w[README.md]
+  s.rdoc_options      = %w[--main README.md --markup markdown]
   s.require_paths     = %w[lib]
 
-  s.files = %w[README.rdoc CHANGELOG.txt] + Dir.glob('lib/**/*.rb')
+  s.files = %w[CHANGELOG.md README.md] +
+            Dir.glob('lib/**/*.rb')
 
   s.add_dependency 'eventmachine', '>= 0.12.0'
   s.add_dependency 'em-hiredis', '>= 0.2.0'
