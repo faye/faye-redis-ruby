@@ -1,3 +1,9 @@
+### 0.2.0 / 2013-10-01
+
+* Migrate from Yajl to MultiJson to support JRuby
+* Trigger `close` event as required by Faye 1.0
+
+
 ### 0.1.1 / 2013-04-28
 
 * Improve garbage collection to avoid leaking Redis memory
