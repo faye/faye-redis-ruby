@@ -63,7 +63,7 @@ module Faye
     def create_client(&callback)
       init
       client_id = @server.generate_id
-      @redis.zadd(@ns + '/clients', 0, client_id) do |added|
+      @redis.zadd(@ns + '/clients', get_current_time, client_id) do |added|
         next create_client(&callback) if added == 0
         @server.debug 'Created new client ?', client_id
         ping(client_id)
@@ -178,7 +178,9 @@ module Faye
       @redis.exec.callback  do |json_messages, deleted|
         next unless json_messages
         messages = json_messages.map { |json| MultiJson.load(json) }
-        @server.deliver(client_id, messages)
+        if not @server.deliver(client_id, messages)
+          @redis.rpush(key, *json_messages)
+        end
       end
     end
 

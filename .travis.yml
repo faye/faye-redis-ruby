@@ -7,9 +7,9 @@ rvm:
   - rbx-19mode
 
 before_script:
-  - git submodule update --init --recursive
+  - git submodule update --init
 
-script: bundle exec rspec -c spec/
+script: bundle exec rspec
 
 env: TRAVIS=1
 
