@@ -19,4 +19,5 @@ Gem::Specification.new do |s|
 
   s.add_development_dependency 'rspec'
   s.add_development_dependency 'websocket-driver'
+  s.add_development_dependency 'rspec-eventmachine'
 end

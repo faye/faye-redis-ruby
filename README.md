@@ -35,6 +35,15 @@ The full list of settings is as follows.
 * <b>`:namespace`</b> - prefix applied to all keys, default is `''`
 * <b>`:socket`</b> - path to Unix socket if `unixsocket` is set
 
+## Contribute
+
+To get to green spec state, you need to:
+
+1. fork & clone the project
+2. install faye submodule: `git submodule update --init`
+3. install bundle: `bundle`
+4. start a redis server: `redis-server spec/redis.conf`
+5. run specs: `bundle exec rspec`
 
 ## License
 
