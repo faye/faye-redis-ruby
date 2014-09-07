@@ -18,5 +18,6 @@ Gem::Specification.new do |s|
   s.add_dependency 'multi_json', '>= 1.0.0'
 
   s.add_development_dependency 'rspec'
+  s.add_development_dependency 'rspec-eventmachine'
   s.add_development_dependency 'websocket-driver'
 end
