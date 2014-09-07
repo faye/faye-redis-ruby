@@ -8,10 +8,12 @@ rvm:
   - jruby-19mode
   - rbx-2
 
+services:
+  - redis-server
+
 before_script:
   - git submodule update --init --recursive
 
 script: bundle exec rspec -c spec/
 
 env: TRAVIS=1
-
