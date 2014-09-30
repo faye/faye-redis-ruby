@@ -6,8 +6,13 @@ services:
 rvm:
   - 1.9.3
   - 2.0.0
+  - 2.1.0
+  - 2.1.2
   - jruby-19mode
-  - rbx-19mode
+  - rbx-2
+
+services:
+  - redis-server
 
 before_script:
   - git submodule update --init
@@ -15,4 +20,3 @@ before_script:
 script: bundle exec rspec
 
 env: TRAVIS=1
-
