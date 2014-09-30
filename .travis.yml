@@ -1,8 +1,5 @@
 language: ruby
 
-services:
-  - redis-server
-
 rvm:
   - 1.9.3
   - 2.0.0
@@ -15,8 +12,8 @@ services:
   - redis-server
 
 before_script:
-  - git submodule update --init
+  - git submodule update --init --recursive
 
-script: bundle exec rspec
+script: bundle exec rspec -c spec/
 
 env: TRAVIS=1
