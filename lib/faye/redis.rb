@@ -17,6 +17,8 @@ module Faye
     def initialize(server, options)
       @server  = server
       @options = options
+
+      init if EventMachine.reactor_running?
     end
 
     def init
