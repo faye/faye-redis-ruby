@@ -72,9 +72,9 @@ module Faye
       end
     end
 
-    def client_exists(client_id, &callback)
+    def client_exists(client_id, timeout_multiplier = 1.6, &callback)
       init
-      cutoff = get_current_time - (1000 * 1.6 * @server.timeout)
+      cutoff = get_current_time - (1000 * timeout_multiplier * @server.timeout)
 
       @redis.zscore(@ns + '/clients', client_id) do |score|
         callback.call(score.to_i > cutoff)
