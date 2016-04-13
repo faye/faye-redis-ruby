@@ -40,6 +40,9 @@ module Faye
       else
         @redis = EventMachine::Hiredis::Client.new(host, port, auth, db).connect
       end
+      @redis.errback do |reason|
+        raise "Connection to redis failed : #{reason}"
+      end
       @subscriber = @redis.pubsub
 
       @message_channel = @ns + '/notifications/messages'
