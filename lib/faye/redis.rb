@@ -17,6 +17,7 @@ module Faye
     def initialize(server, options)
       @server  = server
       @options = options
+      EventMachine::Hiredis.logger.level = Logger::DEBUG
 
       init if EventMachine.reactor_running?
     end
@@ -57,8 +58,26 @@ module Faye
 
       @gc = EventMachine.add_periodic_timer(gc, &method(:gc))
       @subscriber.on(:failed) do
-        disconnect
+        @server.error "Faye::Redis: redis connection failed"
+        @redis = nil
         raise "Could not connect to redis"
+      end
+      @redis.on(:failed) do
+        @server.error "Faye::Redis: redis connection failed"
+        @redis = nil
+        raise "Could not connect to redis"
+      end
+      @redis.on(:disconnected) do
+        @server.info "Faye::Redis: redis disconnected"
+      end
+      @redis.on(:connected) do
+        @server.info "Faye::Redis: redis connected"
+      end
+      @redis.on(:reconnected) do
+        @server.info "Faye::Redis: redis reconnected"
+      end
+      @redis.on(:reconnect_failed) do |count|
+        @server.info "Faye::Redis: redis reconnect failed (#{count}/4)"
       end
     end
 
