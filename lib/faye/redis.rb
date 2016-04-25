@@ -27,7 +27,8 @@ module Faye
       uri    = @options[:uri] || @options['uri']             || nil
       host   = @options[:host] || @options['host']           || DEFAULT_HOST
       port   = @options[:port] || @options['port']           || DEFAULT_PORT
-      db     = @options[:database] || @options['database']   || DEFAULT_DATABASE
+      db     = @options[:database] || @options['database'] ||
+               @options[:db] || @options['db']               || DEFAULT_DATABASE
       auth   = @options[:password] || @options['password']   || nil
       gc     = @options[:gc] || @options['gc']               || DEFAULT_GC
       @ns    = @options[:namespace] || @options['namespace'] || ''
