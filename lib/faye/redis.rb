@@ -96,7 +96,7 @@ module Faye
         Faye::Redis.logger.error "added #{added}"
         ping(client_id)
         @server.trigger(:handshake, client_id)
-        yield(client_id)
+        callback.call(client_id)
       end
     end
 
@@ -106,7 +106,7 @@ module Faye
       cutoff = get_current_time - (1000 * 1.6 * @server.timeout)
 
       @redis.zscore(@ns + '/clients', client_id) do |score|
-        yield(score.to_i > cutoff)
+        callback.call(score.to_i > cutoff)
       end
     end
 
@@ -134,7 +134,7 @@ module Faye
           @server.debug 'Destroyed client ?', client_id
           @server.trigger(:disconnect, client_id)
           @redis.publish(@close_channel, client_id)
-          yield if callback
+          callback.call if callback
         end
       end
     end
@@ -157,7 +157,7 @@ module Faye
       end
       @redis.sadd(@ns + "/channels#{channel}", client_id) do
         @server.debug 'Subscribed client ? to channel ?', client_id, channel
-        yield if callback
+        callback.call if callback
       end
     end
 
@@ -169,7 +169,7 @@ module Faye
       end
       @redis.srem(@ns + "/channels#{channel}", client_id) do
         @server.debug 'Unsubscribed client ? from channel ?', client_id, channel
-        yield if callback
+        callback.call if callback
       end
     end
 
@@ -253,7 +253,7 @@ module Faye
       end
 
       @redis.setnx(lock_key, expiry) do |set|
-        next yield(release_lock) if set == 1
+        next block.call(release_lock) if set == 1
 
         @redis.get(lock_key) do |timeout|
           next unless timeout
@@ -262,7 +262,7 @@ module Faye
           next if current_time < lock_timeout
 
           @redis.getset(lock_key, expiry) do |old_value|
-            yield(release_lock) if old_value == timeout
+            block.call(release_lock) if old_value == timeout
           end
         end
       end
