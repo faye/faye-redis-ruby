@@ -1,4 +1,5 @@
 require 'em-hiredis'
+require 'em-hiredis-sentinel'
 require 'multi_json'
 
 module Faye
@@ -32,8 +33,14 @@ module Faye
       gc     = @options[:gc]        || DEFAULT_GC
       @ns    = @options[:namespace] || ''
       socket = @options[:socket]    || nil
+      sentinels = @options[:sentinels] || nil
+      master_name = @options[:master_name] || nil
 
-      if uri
+      if sentinels && master_name
+        @redis = EventMachine::Hiredis::Sentinel::RedisClient.new(sentinels: sentinels,
+                                                                  master_name: master_name).connect
+        @server.debug 'Redis has been initialized with sentinels'
+      elsif uri
         @redis = EventMachine::Hiredis.connect(uri)
       elsif socket
         @redis = EventMachine::Hiredis::Client.new(socket, nil, auth, db).connect
@@ -177,7 +184,7 @@ module Faye
       @redis.multi
       @redis.lrange(key, 0, -1)
       @redis.del(key)
-      @redis.exec.callback  do |json_messages, deleted|
+      @redis.exec.callback do |json_messages, deleted|
         next unless json_messages
         messages = json_messages.map { |json| MultiJson.load(json) }
         @server.deliver(client_id, messages)
@@ -234,7 +241,5 @@ module Faye
         end
       end
     end
-
   end
 end
-

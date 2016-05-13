@@ -14,8 +14,9 @@ Gem::Specification.new do |s|
             Dir.glob('lib/**/*.rb')
 
   s.add_dependency 'eventmachine', '>= 0.12.0'
-  s.add_dependency 'em-hiredis', '>= 0.2.0'
+  s.add_dependency 'em-hiredis', '>= 0.3.0'
   s.add_dependency 'multi_json', '>= 1.0.0'
+  s.add_dependency 'em-hiredis-sentinel', '>= 0.2.3'
 
   s.add_development_dependency 'rspec'
   s.add_development_dependency 'rspec-eventmachine'
