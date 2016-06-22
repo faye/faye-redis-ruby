@@ -69,6 +69,8 @@ module Faye
       end
       @redis.on(:disconnected) do
         @server.info "Faye::Redis: redis disconnected"
+        @redis = nil
+        raise "disconnected from redis"
       end
       @redis.on(:connected) do
         @server.info "Faye::Redis: redis connected"
