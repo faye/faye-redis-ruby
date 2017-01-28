@@ -8,7 +8,7 @@ describe Faye::Redis do
 
   after do
     disconnect_engine
-    redis = EM::Hiredis::Client.connect('localhost', 6379)
+    redis = EM::Hiredis::Client.connect('0.0.0.0', 6379)
     redis.auth(engine_opts[:password])
     redis.flushall
   end

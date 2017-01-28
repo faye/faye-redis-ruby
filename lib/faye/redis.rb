@@ -4,7 +4,7 @@ require 'multi_json'
 module Faye
   class Redis
 
-    DEFAULT_HOST     = 'localhost'
+    DEFAULT_HOST     = '0.0.0.0'
     DEFAULT_PORT     = 6379
     DEFAULT_DATABASE = 0
     DEFAULT_GC       = 60
