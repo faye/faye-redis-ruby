@@ -14,6 +14,9 @@ rvm:
 services:
   - redis-server
 
+before_install:
+  - gem install bundler
+
 before_script:
   - git submodule update --init --recursive
 

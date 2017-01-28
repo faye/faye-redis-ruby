@@ -34,7 +34,27 @@ The full list of settings is as follows.
 * <b>`:database`</b> - number of database to use, default is `0`
 * <b>`:namespace`</b> - prefix applied to all keys, default is `''`
 * <b>`:socket`</b> - path to Unix socket if `unixsocket` is set
+* <b>`:master_name`</b> - name of the master, controlling sentinels, default is `nil`
+* <b>`:sentinels`</b> - array of sentinels, default is `nil`
 
+Sentinels could be specified as follows
+
+```rb
+sentinels = [
+    'your_redis_host.com:26379',
+    'your_redis_host.com:26380',
+    'your_redis_host.com:26381'
+  ]
+
+sentinels = [
+    {url:'blah://sentinel5.example.net:26381'},
+    {url:'blah://sentinel5.example.net:26382'},
+    {url:'blah://sentinel5.example.net:26383'}
+  ]
+```
+When you specify sentinels, you should also specify master name.
+Gem  em-hiredis-sentinel is used in order to get sentinel technology support
+https://github.com/livehelpnow/em-hiredis-sentinel
 
 ## License
 
