@@ -1,14 +1,13 @@
 require 'em-hiredis'
 require 'multi_json'
 
+require File.expand_path('../redis_factory', __FILE__)
+
 module Faye
   class Redis
 
-    DEFAULT_HOST     = '0.0.0.0'
-    DEFAULT_PORT     = 6379
-    DEFAULT_DATABASE = 0
-    DEFAULT_GC       = 60
-    LOCK_TIMEOUT     = 120
+    DEFAULT_GC   = 60
+    LOCK_TIMEOUT = 120
 
     def self.create(server, options)
       new(server, options)
@@ -17,29 +16,18 @@ module Faye
     def initialize(server, options)
       @server  = server
       @options = options
+      @factory = options[:factory] || RedisFactory.new(options)
 
-      init if EventMachine.reactor_running?
+      init
     end
 
     def init
-      return if @redis
+      return if @redis or !EventMachine.reactor_running?
 
-      uri    = @options[:uri]       || nil
-      host   = @options[:host]      || DEFAULT_HOST
-      port   = @options[:port]      || DEFAULT_PORT
-      db     = @options[:database]  || DEFAULT_DATABASE
-      auth   = @options[:password]  || nil
       gc     = @options[:gc]        || DEFAULT_GC
       @ns    = @options[:namespace] || ''
-      socket = @options[:socket]    || nil
+      @redis = @factory.call
 
-      if uri
-        @redis = EventMachine::Hiredis.connect(uri)
-      elsif socket
-        @redis = EventMachine::Hiredis::Client.new(socket, nil, auth, db).connect
-      else
-        @redis = EventMachine::Hiredis::Client.new(host, port, auth, db).connect
-      end
       @subscriber = @redis.pubsub
 
       @message_channel = @ns + '/notifications/messages'
