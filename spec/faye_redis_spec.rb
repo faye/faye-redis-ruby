@@ -23,4 +23,3 @@ describe Faye::Redis do
     it_should_behave_like "faye engine"
   end
 end
-

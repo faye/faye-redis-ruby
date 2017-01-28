@@ -5,4 +5,3 @@ require File.expand_path('../../vendor/faye/spec/ruby/engine_examples', __FILE__
 class << Faye
   attr_accessor :logger
 end
-
