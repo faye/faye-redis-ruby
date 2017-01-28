@@ -17,6 +17,7 @@ module Faye
     def initialize(server, options)
       @server  = server
       @options = options
+      EventMachine::Hiredis.logger.level = Logger::DEBUG
 
       init if EventMachine.reactor_running?
     end
@@ -40,6 +41,9 @@ module Faye
       else
         @redis = EventMachine::Hiredis::Client.new(host, port, auth, db).connect
       end
+      @redis.errback do |reason|
+        raise "Connection to redis failed : #{reason}"
+      end
       @subscriber = @redis.pubsub
 
       @message_channel = @ns + '/notifications/messages'
@@ -53,6 +57,30 @@ module Faye
       end
 
       @gc = EventMachine.add_periodic_timer(gc, &method(:gc))
+      @subscriber.on(:failed) do
+        @server.error "Faye::Redis: redis connection failed"
+        @redis = nil
+        raise "Could not connect to redis"
+      end
+      @redis.on(:failed) do
+        @server.error "Faye::Redis: redis connection failed"
+        @redis = nil
+        raise "Could not connect to redis"
+      end
+      @redis.on(:disconnected) do
+        @server.info "Faye::Redis: redis disconnected"
+        @redis = nil
+        raise "disconnected from redis"
+      end
+      @redis.on(:connected) do
+        @server.info "Faye::Redis: redis connected"
+      end
+      @redis.on(:reconnected) do
+        @server.info "Faye::Redis: redis reconnected"
+      end
+      @redis.on(:reconnect_failed) do |count|
+        @server.info "Faye::Redis: redis reconnect failed (#{count}/4)"
+      end
     end
 
     def disconnect
@@ -65,7 +93,7 @@ module Faye
     def create_client(&callback)
       init
       client_id = @server.generate_id
-      @redis.zadd(@ns + '/clients', 0, client_id) do |added|
+      @redis.zadd(@ns + '/clients', get_current_time, client_id) do |added|
         next create_client(&callback) if added == 0
         @server.debug 'Created new client ?', client_id
         ping(client_id)
@@ -74,9 +102,9 @@ module Faye
       end
     end
 
-    def client_exists(client_id, &callback)
+    def client_exists(client_id, timeout_multiplier = 1.6, &callback)
       init
-      cutoff = get_current_time - (1000 * 1.6 * @server.timeout)
+      cutoff = get_current_time - (1000 * timeout_multiplier * @server.timeout)
 
       @redis.zscore(@ns + '/clients', client_id) do |score|
         callback.call(score.to_i > cutoff)
@@ -180,7 +208,9 @@ module Faye
       @redis.exec.callback  do |json_messages, deleted|
         next unless json_messages
         messages = json_messages.map { |json| MultiJson.load(json) }
-        @server.deliver(client_id, messages)
+        if not @server.deliver(client_id, messages)
+          @redis.rpush(key, *json_messages)
+        end
       end
     end
 
