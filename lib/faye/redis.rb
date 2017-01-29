@@ -41,6 +41,10 @@ module Faye
       end
 
       @gc = EventMachine.add_periodic_timer(gc, &method(:gc))
+      @subscriber.on(:failed) do
+        disconnect
+        raise "Could not connect to redis"
+      end
     end
 
     def disconnect
