@@ -41,11 +41,18 @@ module Faye
       else
         @redis = EventMachine::Hiredis::Client.new(host, port, auth, db).connect
       end
+      @redis.on(:connected) do
+        @redis.client('setname', "faye-server/#{@ns}[#{Socket.gethostname}][#{Process.pid}]")
+      end
       @redis.errback do |reason|
         raise "Connection to redis failed : #{reason}"
       end
       @subscriber = @redis.pubsub
 
+      @subscriber.on(:connected) do
+        @subscriber.client('setname', "faye-server/#{@ns}/pubsub[#{Socket.gethostname}][#{Process.pid}]")
+      end
+      
       @message_channel = @ns + '/notifications/messages'
       @close_channel   = @ns + '/notifications/close'
 
