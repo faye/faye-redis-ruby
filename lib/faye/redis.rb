@@ -52,7 +52,7 @@ module Faye
       @subscriber.on(:connected) do
         @subscriber.client('setname', "faye-server/#{@ns}/pubsub[#{Socket.gethostname}][#{Process.pid}]")
       end
-      
+
       @message_channel = @ns + '/notifications/messages'
       @close_channel   = @ns + '/notifications/close'
 
@@ -77,7 +77,7 @@ module Faye
       @redis.on(:disconnected) do
         @server.info "Faye::Redis: redis disconnected"
         @redis = nil
-        raise "disconnected from redis"
+        abort('disconnected from redis')
       end
       @redis.on(:connected) do
         @server.info "Faye::Redis: redis connected"
