@@ -3,7 +3,6 @@ require 'multi_json'
 
 module Faye
   class Redis
-
     DEFAULT_HOST     = 'localhost'
     DEFAULT_PORT     = 6379
     DEFAULT_DATABASE = 0
@@ -17,77 +16,7 @@ module Faye
     def initialize(server, options)
       @server  = server
       @options = options
-      EventMachine::Hiredis.logger.level = Logger::DEBUG
-
-      init if EventMachine.reactor_running?
-    end
-
-    def init
-      return if @redis
-
-      uri    = @options[:uri]       || nil
-      host   = @options[:host]      || DEFAULT_HOST
-      port   = @options[:port]      || DEFAULT_PORT
-      db     = @options[:database]  || DEFAULT_DATABASE
-      auth   = @options[:password]  || nil
-      gc     = @options[:gc]        || DEFAULT_GC
-      @ns    = @options[:namespace] || ''
-      socket = @options[:socket]    || nil
-
-      if uri
-        @redis = EventMachine::Hiredis.connect(uri)
-      elsif socket
-        @redis = EventMachine::Hiredis::Client.new(socket, nil, auth, db).connect
-      else
-        @redis = EventMachine::Hiredis::Client.new(host, port, auth, db).connect
-      end
-      @redis.on(:connected) do
-        @redis.client('setname', "faye-server/#{@ns}[#{Socket.gethostname}][#{Process.pid}]")
-      end
-      @redis.errback do |reason|
-        raise "Connection to redis failed : #{reason}"
-      end
-      @subscriber = @redis.pubsub
-
-      @subscriber.on(:connected) do
-        @subscriber.client('setname', "faye-server/#{@ns}/pubsub[#{Socket.gethostname}][#{Process.pid}]")
-      end
-
-      @message_channel = @ns + '/notifications/messages'
-      @close_channel   = @ns + '/notifications/close'
-
-      @subscriber.subscribe(@message_channel)
-      @subscriber.subscribe(@close_channel)
-      @subscriber.on(:message) do |topic, message|
-        empty_queue(message) if topic == @message_channel
-        @server.trigger(:close, message) if topic == @close_channel
-      end
-
-      @gc = EventMachine.add_periodic_timer(gc, &method(:gc))
-      @subscriber.on(:failed) do
-        @server.error "Faye::Redis: redis connection failed"
-        @redis = nil
-        raise "Could not connect to redis"
-      end
-      @redis.on(:failed) do
-        @server.error "Faye::Redis: redis connection failed"
-        @redis = nil
-        raise "Could not connect to redis"
-      end
-      @redis.on(:disconnected) do
-        @server.info "Faye::Redis: redis disconnected"
-        @redis = nil
-        abort('disconnected from redis')
-      end
-      @redis.on(:connected) do
-        @server.info "Faye::Redis: redis connected"
-      end
-      @redis.on(:reconnected) do
-        @server.info "Faye::Redis: redis reconnected"
-      end
-      @redis.on(:reconnect_failed) do |count|
-        @server.info "Faye::Redis: redis reconnect failed (#{count}/4)"
-      end
+      redis
     end
 
     def disconnect
@@ -98,9 +27,8 @@ module Faye
     end
 
     def create_client(&callback)
-      init
       client_id = @server.generate_id
-      @redis.zadd(@ns + '/clients', get_current_time, client_id) do |added|
+      redis.zadd(@ns + '/clients', get_current_time, client_id) do |added|
         next create_client(&callback) if added == 0
         @server.debug 'Created new client ?', client_id
         ping(client_id)
@@ -110,18 +38,16 @@ module Faye
     end
 
     def client_exists(client_id, timeout_multiplier = 1.6, &callback)
-      init
       cutoff = get_current_time - (1000 * timeout_multiplier * @server.timeout)
 
-      @redis.zscore(@ns + '/clients', client_id) do |score|
+      redis.zscore(@ns + '/clients', client_id) do |score|
         callback.call(score.to_i > cutoff)
       end
     end
 
     def destroy_client(client_id, &callback)
-      init
-      @redis.zadd(@ns + '/clients', 0, client_id) do
-        @redis.smembers(@ns + "/clients/#{client_id}/channels") do |channels|
+      redis.zadd(@ns + '/clients', 0, client_id) do
+        redis.smembers(@ns + "/clients/#{client_id}/channels") do |channels|
           i, n = 0, channels.size
           next after_subscriptions_removed(client_id, &callback) if i == n
 
@@ -136,66 +62,62 @@ module Faye
     end
 
     def after_subscriptions_removed(client_id, &callback)
-      @redis.del(@ns + "/clients/#{client_id}/messages") do
-        @redis.zrem(@ns + '/clients', client_id) do
+      redis.del(@ns + "/clients/#{client_id}/messages") do
+        redis.zrem(@ns + '/clients', client_id) do
           @server.debug 'Destroyed client ?', client_id
           @server.trigger(:disconnect, client_id)
-          @redis.publish(@close_channel, client_id)
+          redis.publish(@close_channel, client_id)
           callback.call if callback
         end
       end
     end
 
     def ping(client_id)
-      init
       timeout = @server.timeout
       return unless Numeric === timeout
 
       time = get_current_time
       @server.debug 'Ping ?, ?', client_id, time
-      @redis.zadd(@ns + '/clients', time, client_id)
+      redis.zadd(@ns + '/clients', time, client_id)
     end
 
     def subscribe(client_id, channel, &callback)
-      init
-      @redis.sadd(@ns + "/clients/#{client_id}/channels", channel) do |added|
+      redis.sadd(@ns + "/clients/#{client_id}/channels", channel) do |added|
         @server.trigger(:subscribe, client_id, channel) if added == 1
       end
-      @redis.sadd(@ns + "/channels#{channel}", client_id) do
+      redis.sadd(@ns + "/channels#{channel}", client_id) do
         @server.debug 'Subscribed client ? to channel ?', client_id, channel
         callback.call if callback
       end
     end
 
     def unsubscribe(client_id, channel, &callback)
-      init
-      @redis.srem(@ns + "/clients/#{client_id}/channels", channel) do |removed|
+      redis.srem(@ns + "/clients/#{client_id}/channels", channel) do |removed|
         @server.trigger(:unsubscribe, client_id, channel) if removed == 1
       end
-      @redis.srem(@ns + "/channels#{channel}", client_id) do
+      redis.srem(@ns + "/channels#{channel}", client_id) do
         @server.debug 'Unsubscribed client ? from channel ?', client_id, channel
         callback.call if callback
       end
     end
 
     def publish(message, channels)
-      init
       @server.debug 'Publishing message ?', message
 
       json_message = MultiJson.dump(message)
       channels     = Channel.expand(message['channel'])
       keys         = channels.map { |c| @ns + "/channels#{c}" }
 
-      @redis.sunion(*keys) do |clients|
+      redis.sunion(*keys) do |clients|
         clients.each do |client_id|
           queue = @ns + "/clients/#{client_id}/messages"
 
           @server.debug 'Queueing for client ?: ?', client_id, message
-          @redis.rpush(queue, json_message)
-          @redis.publish(@message_channel, client_id)
+          redis.rpush(queue, json_message)
+          redis.publish(@message_channel, client_id)
 
           client_exists(client_id) do |exists|
-            @redis.del(queue) unless exists
+            redis.del(queue) unless exists
           end
         end
       end
@@ -205,23 +127,97 @@ module Faye
 
     def empty_queue(client_id)
       return unless @server.has_connection?(client_id)
-      init
 
       key = @ns + "/clients/#{client_id}/messages"
 
-      @redis.multi
-      @redis.lrange(key, 0, -1)
-      @redis.del(key)
-      @redis.exec.callback  do |json_messages, deleted|
+      redis.multi
+      redis.lrange(key, 0, -1)
+      redis.del(key)
+      redis.exec.callback  do |json_messages, deleted|
         next unless json_messages
         messages = json_messages.map { |json| MultiJson.load(json) }
         if not @server.deliver(client_id, messages)
-          @redis.rpush(key, *json_messages)
+          redis.rpush(key, *json_messages)
         end
       end
     end
 
-  private
+    private
+
+    def redis
+      @redis ||= begin
+        uri    = @options[:uri]       || nil
+        host   = @options[:host]      || DEFAULT_HOST
+        port   = @options[:port]      || DEFAULT_PORT
+        db     = @options[:database]  || DEFAULT_DATABASE
+        auth   = @options[:password]  || nil
+        gc     = @options[:gc]        || DEFAULT_GC
+        @ns    = @options[:namespace] || ''
+        socket = @options[:socket]    || nil
+
+        connection = if uri
+          EventMachine::Hiredis.connect(uri)
+        elsif socket
+          EventMachine::Hiredis::Client.new(socket, nil, auth, db).connect
+        else
+          EventMachine::Hiredis::Client.new(host, port, auth, db).connect
+        end
+
+        @message_channel = @ns + '/notifications/messages'
+        @close_channel   = @ns + '/notifications/close'
+
+        @gc = EventMachine.add_periodic_timer(gc, &method(:gc))
+        @subscriber = connection.pubsub
+        @subscriber.subscribe(@message_channel)
+        @subscriber.subscribe(@close_channel)
+        @subscriber.on(:message) do |topic, message|
+          empty_queue(message) if topic == @message_channel
+          @server.trigger(:close, message) if topic == @close_channel
+        end
+        @subscriber.on(:connected) do
+          @subscriber.client('setname', "faye-server/#{@ns}/pubsub[#{Socket.gethostname}][#{Process.pid}]")
+          @server.info "Faye::Redis: redis pubsub connection connected"
+        end
+        @subscriber.on(:disconnected) do
+          @server.info "Faye::Redis: redis pubsub connection disconnected"
+        end
+       @subscriber.on(:reconnected) do
+          @server.info "Faye::Redis: redis pubsub connection reconnected"
+        end
+        @subscriber.on(:reconnect_failed) do |count|
+          @server.info "Faye::Redis: redis pubsub connection reconnect failed (#{count}/4)"
+        end
+        @subscriber.on(:failed) do
+          @server.error "Faye::Redis: redis pubsub connection failed"
+          EM.add_timer(EM::Hiredis.reconnect_timeout) { @subscriber.reconnect! }
+        end
+        @subscriber.errback do |reason|
+          @server.error "Faye::Redis: redis pubsub connection failed: #{reason}"
+        end
+
+        connection.on(:connected) do
+          connection.client('setname', "faye-server/#{@ns}[#{Socket.gethostname}][#{Process.pid}]")
+          @server.info "Faye::Redis: redis connection connected"
+        end
+        connection.on(:disconnected) do
+          @server.info "Faye::Redis: redis connection disconnected"
+        end
+       connection.on(:reconnected) do
+          @server.info "Faye::Redis: redis connection reconnected"
+        end
+        connection.on(:reconnect_failed) do |count|
+          @server.info "Faye::Redis: redis connection reconnect failed (#{count}/4)"
+        end
+        connection.on(:failed) do
+          @server.error "Faye::Redis: redis connection failed"
+          EM.add_timer(EM::Hiredis.reconnect_timeout) { connection.reconnect! }
+        end
+        connection.errback do |reason|
+          @server.error "Faye::Redis: redis connection failed: #{reason}"
+        end
+        connection
+      end if EventMachine.reactor_running?
+    end
 
     def get_current_time
       (Time.now.to_f * 1000).to_i
@@ -233,7 +229,7 @@ module Faye
 
       with_lock 'gc' do |release_lock|
         cutoff = get_current_time - 1000 * 2 * timeout
-        @redis.zrangebyscore(@ns + '/clients', 0, cutoff) do |clients|
+        redis.zrangebyscore(@ns + '/clients', 0, cutoff) do |clients|
           i, n = 0, clients.size
           next release_lock.call if i == n
 
@@ -253,19 +249,19 @@ module Faye
       expiry       = current_time + LOCK_TIMEOUT * 1000 + 1
 
       release_lock = lambda do
-        @redis.del(lock_key) if get_current_time < expiry
+        redis.del(lock_key) if get_current_time < expiry
       end
 
-      @redis.setnx(lock_key, expiry) do |set|
+      redis.setnx(lock_key, expiry) do |set|
         next block.call(release_lock) if set == 1
 
-        @redis.get(lock_key) do |timeout|
+        redis.get(lock_key) do |timeout|
           next unless timeout
 
           lock_timeout = timeout.to_i(10)
           next if current_time < lock_timeout
 
-          @redis.getset(lock_key, expiry) do |old_value|
+          redis.getset(lock_key, expiry) do |old_value|
             block.call(release_lock) if old_value == timeout
           end
         end
